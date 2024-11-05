@@ -22,21 +22,13 @@ final conn = await MySQLConnection.createConnection(
 await conn.connect();
 print("SQL Connect");
 conn.execute("show tables");
-var result = await conn.execute("insert into comments_table values (:comment_id, :user_id, :user_password, :video_id, :comments_body)",
-{
-  "comment_id" : 1234, 
-  "user_id" : "41132", 
-  "user_password" : "12312", 
-  "video_id" : 4411, 
-  "comments_body" : "Hello_World"
-});
 
-result = await conn.execute("select comment_id from comments_table");
+var result = await conn.execute("select comment_id, user_password from comments_table");
 
-print(result.numOfColumns);
-print(result.numOfRows);
-print(result.lastInsertID);
-print(result.affectedRows);
+// print(result.numOfColumns);
+// print(result.numOfRows);
+// print(result.lastInsertID);
+// print(result.affectedRows);
 
   // print query result
   for (final row in result.rows) {
@@ -44,7 +36,8 @@ print(result.affectedRows);
     // print(row.colByName("title"));
 
     // print all rows as Map<String, String>
-    print(row.assoc());
+    var rowcont = row.assoc();
+    print(rowcont);
   }
 
   // close all connections
@@ -70,8 +63,9 @@ print(result.numOfColumns);
         case 'POST' : // 동영상이나 댓글을 업로드
           createContents(request, conn);
         case 'GET' : // 동영상이나 댓글을 읽기
-          readContents(request);
+          readContents(request, conn);
         case 'PUT' : // 댓글 업데이트
+          updateComment(request, conn);
         case 'DELETE' : // 댓글 영상 삭제
       }
     }
@@ -125,6 +119,8 @@ void createContents(HttpRequest request, MySQLConnection conn) async {
     var videoId = transaction["videoId"];
     var commentId = transaction["commentId"];
     var commentContents = transaction["commentContents"];
+
+    // 데이터베이스에 해당 댓글을 유저 아이디와 비밀번호를 포함하여 등록
     await conn.execute("insert into comments_table values (:comment_id, :user_id, :user_password, :video_id, :comments_body)",
       {
         "comment_id" : commentId, 
@@ -135,7 +131,6 @@ void createContents(HttpRequest request, MySQLConnection conn) async {
       });
   }
   else if (_contentType == 'VIDEO_FILE') {
-    
   }
   else {
     print("\$ ::WRONG TYPE COMMAND::");
@@ -145,7 +140,30 @@ void createContents(HttpRequest request, MySQLConnection conn) async {
   
 }
 
+void updateComment(HttpRequest request, MySQLConnection conn) async {
+  var content = await utf8.decoder.bind(request).join();
+  var transaction = jsonDecode(content) as Map;
+    //파싱
+  var user_id = transaction['user_id'];
+  var user_password = transaction['user_password'];
+  var videoId = transaction["videoId"];
+  var commentId = transaction["commentId"];
+  bool isRightUser = false;
+  
+  var result = await conn.execute('select user_id, user_password from comments_table where comment_id = :commentId', { "commentId" : commentId});
+  for (final row in result.rows) {
+    var _result = row.assoc();
+    if ((_result["user_id"] == user_id) && (_result["user_password"] == user_password)) {
+      isRightUser = true;
+    }
+  }
+  if (isRightUser){
+    var commentContents = transaction["commentContents"];
+    await conn.execute("update comments_table SET comment_body = :commentContents where comment_id = :commentId", {"commentContents" : commentContents, "commentId" : commentId});
+  }
 
+  printAndSendHttpResponse(request, content);
+}
 
 void readContents(HttpRequest request, MySQLConnection conn) async {
   var content = await utf8.decoder.bind(request).join();
