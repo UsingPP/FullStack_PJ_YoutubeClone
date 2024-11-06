@@ -23,13 +23,17 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request) async {
       return information;
     }
 
+    print("\$ Start handling Video File");
     // MimeMultipartTransformer로 multipart 데이터를 처리합니다.
     final transformer = MimeMultipartTransformer(boundary);
     final parts = await transformer.bind(request).toList();
 
-    String? id;
-    String? password;
+    String? userId;
+    String? userPassword;
     String? description;
+    String? video_id;
+    String? video_name;
+    String video_path = 'uploads/';
 
     for (final part in parts) {
       final contentDisposition = part.headers['content-disposition'];
@@ -38,7 +42,8 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request) async {
         if (contentDisposition.contains('filename=')) {
           final filename = RegExp(r'filename="([^"]*)"').firstMatch(contentDisposition)?.group(1);
           if (filename != null) {
-            final file = File('uploads/$filename');
+            video_path = video_path + filename;
+            final file = File(video_path);
             await file.create(recursive: true);
             await part.pipe(file.openWrite());
             
@@ -52,23 +57,37 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request) async {
         // 텍스트 필드 처리 부분
         
         if (contentDisposition != null) {
-          if (contentDisposition.contains('name="id"')) {
-            id = await part.transform(utf8.decoder).join();
-          } else if (contentDisposition.contains('name="password"')) {
-            password = await part.transform(utf8.decoder).join();
+          if (contentDisposition.contains('name="user_id"')) {
+            userId = await part.transform(utf8.decoder).join();
+          } else if (contentDisposition.contains('name="user_password"')) {
+            userPassword = await part.transform(utf8.decoder).join();
           } else if (contentDisposition.contains('name="description"')) {
             description = await part.transform(utf8.decoder).join();
+          } else if (contentDisposition.contains('name="video_id"')) {
+            video_id = await part.transform(utf8.decoder).join();
+          } else if (contentDisposition.contains('name="video_name"')) {
+            video_name = await part.transform(utf8.decoder).join();
           }
         }
       }
     }
 
+    print("\$ Save Video in $video_path");
+
     // id, password, description 처리
-    if (id != null && password != null && description != null) {
-      print('Received ID: $id');
-      print('Received Password: $password');
+    // description의 경우 작성되지 않은 경우 [내용 없음]이라고 자동으로 채워서 서버에 전송되도록 프론트엔드를 구성
+    if (userId != null && userPassword != null && description != null) {
+      print("Received Video ID: $video_id");
+      print("Received Video Name : $video_name");
+      print('Received ID: $userId');
+      print('Received Password: $userPassword');
       print('Received Description: $description');
-      information = { "id" : id, "pw" : password, "description" : description};
+      information = { "video_id" : video_id, 
+                      "video_name" : video_name,
+                      "user_id" : userId,
+                      "user_password" : userPassword,
+                      "video_url" : video_path,
+                      "description" : description};
     } else {
       request.response
         ..statusCode = HttpStatus.badRequest

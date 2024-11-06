@@ -6,6 +6,7 @@ import 'package:server/server.dart' as server;
 
 import 'dart:io';
 import 'dart:convert';
+import 'handleFileUpload.dart';
 import 'package:mysql_client/mysql_client.dart';
 
 Future main() async {
@@ -58,10 +59,25 @@ print(result.numOfColumns);
   await for (HttpRequest request in server ) {
     // 서버에 들어오는 경우는 댓글을 전송, 댓글을 발송
     //혹은 동영상을 전송, 동영상을 발송
+    print("\$ Request in Server");
     try {
+      print("${request.uri.path} and ${request.method}");
       switch (request.method) {
         case 'POST' : // 동영상이나 댓글을 업로드
-          createContents(request, conn);
+          if (request.uri.path == '/videoUpload') {
+            print('\$ Video Post request in Server');
+            Future<Map<String,dynamic>> infomation = handleFileUpload(request);
+            await infomation.then((info) {
+              print(info);
+              //conn.execute("INSERT INTO VIDEO_TABLE VALUE (:video_id, :video_name, :user_id, :user_password, :video_url, :description)", info);
+            }
+            ).catchError((error) {
+              print("ExceptionError::$error");
+            }); 
+          } else if (request.uri.path == '/commentUpload'){
+            print("111");
+          }
+          //createContents(request, conn);
         case 'GET' : // 동영상이나 댓글을 읽기
           readContents(request, conn);
         case 'PUT' : // 댓글 업데이트
@@ -91,7 +107,6 @@ void printAndSendHttpResponse(var request, var content) async {
     ..write(content);
   await request.response.close();
 }
-
 
 //타입캐스팅 해야 할 듯
 

@@ -56,7 +56,7 @@ class _VideoUploadPageState extends State<VideoUploadPage> {
       return;
     }
 
-    final uri = Uri.parse('http://localhost:8080/upload'); // 서버의 주소와 포트
+    final uri = Uri.parse('http://localhost:8080/videoUpload'); // 서버의 주소와 포트
 
     setState(() {
       _uploadStatus = 'Uploading...';
@@ -64,14 +64,13 @@ class _VideoUploadPageState extends State<VideoUploadPage> {
 
     try {
       final request = http.MultipartRequest('POST', uri);
-
-      // 헤더에 아이디, 비밀번호, 설명 추가
-      request.headers.addAll({
-        'User-ID': _idController.text,
-        'Password': _passwordController.text,
-        'Description': _descriptionController.text,
+      // 필드에 아이디, 비밀번호, 설명 추가
+      request.fields.addAll({
+        'video_id': '1234',
+        'user_id': _idController.text,
+        'user_password': _passwordController.text,
+        'description': _descriptionController.text,
       });
-
       // 파일 추가 (웹과 모바일 환경에 따라 다르게 처리)
       if (kIsWeb) {
         request.files.add(http.MultipartFile.fromBytes(

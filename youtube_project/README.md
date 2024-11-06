@@ -1,16 +1,23 @@
-# youtube_project
+코멘트 테이블 제약조건
+====================
 
-A new Flutter project.
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
+|이름|타입|제약조건|
+|---|---|---|
+|COMMENT_ID|VARCHAR(2500)|PK AND NOT NULL|
+|USER_ID|VARCHAR(20)||
+|USER_PASSWORD|VARCHAR(20)||
+|VIDEO_ID|VARCHAR(2000)||
+|CONTENTS|VARCHAR(2000)|NOT NULL|
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+비디오 테이블 제약조건
+=============
+|이름|타입|제약조건|
+|---|---|---|
+|VIDEO_ID|VARCHAR(2000)||
+|VIDEO_NAME|VARCHAR(1000)||
+|USER_ID|VARCHAR(20)||
+|USER_PASSWORD|VARCHAR(20)||
+|VIDEO_URL|VARCHAR(1000)||
+|DESCRIPTION|VARCHAR(2000)||
