@@ -76,20 +76,24 @@ print("\$ SQL Connect");
           } 
           else if (request.uri.path == '/commentUpload')
           {
+            print('\$ Comment Upload request in Server');
             createContents(request, conn);
+          }
+          else if (request.uri.path == '/videoRead')
+          {
+            print('\$ Read Video request in Server');
+            readVideo(request, conn);
+          } 
+          else if (request.uri.path == '/commentRead') 
+          {
+            print('\$ Read Comments request in Server');
+            readContents(request, conn);
           }
           //createContents(request, conn);
           break;
 
         case 'GET' : // 동영상이나 댓글을 읽기
-          if (request.uri.path == '/videoRead')
-          {
-            readVideo(request, conn);
-          } 
-          else if (request.uri.path == '/CommentRead') 
-          {
-            readContents(request, conn);
-          }
+
           break;
 
         case 'PUT' : // 댓글 업데이트

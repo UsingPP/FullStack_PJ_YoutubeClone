@@ -1,5 +1,7 @@
-import 'dart:io' show Platform;
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import "package:flutter/src/material/elevated_button.dart";
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart'; // kIsWeb을 사용하기 위해 추가
@@ -16,10 +18,55 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: VideoUploadPage(),
+      home: MainPage(),
     );
   }
 }
+
+class MainPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              child: const Text("Video Upload Page#Test"),
+              onPressed: () {
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(builder: (context) => VideoUploadPage()),
+                );
+              },
+            ),
+            ElevatedButton(
+              child: const Text("Video View Page#Test"),
+              onPressed: () {
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(builder: (context) => VideoViewPage()),
+                );
+              },
+            ),
+            ElevatedButton(
+              child: const Text("Comment View Page#Test"),
+              onPressed: () {
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(builder: (context) => CommentReadPage()),
+                );
+              },
+            ),
+          ],
+
+        )        
+      ),
+    );
+  }
+}
+
+
 
 class VideoUploadPage extends StatefulWidget {
   @override
@@ -148,4 +195,164 @@ class _VideoUploadPageState extends State<VideoUploadPage> {
       ),
     );
   }
+}
+
+
+class VideoViewPage extends StatefulWidget {
+  @override 
+  _VideoViewPageState createState() => _VideoViewPageState();
+}
+
+class _VideoViewPageState extends State<VideoViewPage> {  
+  final TextEditingController _idController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+
+
+
+  Future<void> sendCommentToServer() async {
+    HttpClientRequest httpRequest;
+    HttpClientResponse httpResponse;
+    var httpClient = HttpClient();
+    var jsonContent = {
+      "conmment_id" : _idController.text,
+      "user_id" : _idController.text,
+      "user_password" : _passwordController.text,
+      "video_id" : "x1a55XF1",
+      "contents" : _descriptionController.text
+    };
+
+
+    var jsonData = jsonEncode(jsonContent);
+
+    try {
+      var serverPath = "/commentUpload";
+      httpRequest = await httpClient.post("10.0.2.2", 8080, serverPath)
+        ..headers.contentType = ContentType("text", 'plain')
+        ..write(jsonData);
+      
+      httpResponse = await httpRequest.close();
+      if (httpResponse.statusCode == HttpStatus.ok) {
+        print("Your Comment is in Server");
+      }
+      else {
+        print("ERROR::${httpResponse.statusCode}");
+      }
+    } catch (error) {
+      print("SendErrorOcur::$error");
+      return;
+    }
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+       title: Text("Video Page Client"),
+      ), 
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            
+            TextField(
+              controller: _idController,
+              decoration: InputDecoration(labelText: 'Enter User ID'),
+            ),
+            SizedBox(height: 10),
+            TextField(
+              controller: _passwordController,
+              decoration: InputDecoration(labelText: 'Enter Password'),
+              obscureText: true,
+            ),
+            SizedBox(height: 10),
+            TextField(
+              controller: _descriptionController,
+              decoration: InputDecoration(labelText: 'Enter Description'),
+            ),
+            ElevatedButton(onPressed: sendCommentToServer, child: Text("Post Text")),
+          ]
+          )
+
+        ),
+      );
+  }
+}
+
+
+
+
+class CommentReadPage extends StatefulWidget {
+  @override 
+  _CommentReadState createState() => _CommentReadState();
+}
+
+class _CommentReadState extends State<CommentReadPage> {
+  var _commentsData = [];
+
+  //동영상이랑 댓글을 보내기
+  Future<void> DownloadCommentFile() async {
+    var httpClient = HttpClient();
+    HttpClientRequest httpRequest;
+    HttpClientResponse httpResponse;
+    Map jsonContent = {
+      'video_id': 'x1a55XF1',
+    };
+
+    var content = await jsonEncode(jsonContent);
+
+    try {
+
+      debugPrint("Cl::MakeRequest");
+      var serverPath = "/commentRead";
+
+      httpRequest = await httpClient.post("10.0.2.2", 8080, serverPath)
+        ..headers.contentType = ContentType('text', 'plain', charset: 'utf8')
+        ..headers.contentLength = content.length
+        ..write(content);
+
+      debugPrint(httpRequest.uri.path);
+      httpResponse = await httpRequest.close();
+
+      debugPrint("httpResponse Arrived");
+      var httpResponseContent = await utf8.decoder.bind(httpResponse).join();
+      debugPrint("HttpResponseContent::$httpResponseContent");
+      
+      setState(() {
+      _commentsData = (jsonDecode(httpResponseContent) as List);
+      });
+
+    }
+    catch (error) {
+      print("Error::$error");
+      return;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    DownloadCommentFile();
+    print(_commentsData.toString());
+  }
+ 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body : 
+        ListView.builder(
+          itemCount: _commentsData.length,
+          itemBuilder: (context, index) {
+            return Row(
+              children : [
+                Text(_commentsData[index]["user_id"]),
+                Text(_commentsData[index]["contents"])
+                 ]
+            );
+          },
+      )
+    );
+  }
+
 }

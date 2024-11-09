@@ -126,6 +126,8 @@ void createContents(HttpRequest request, MySQLConnection conn) async {
 
   var content = await utf8.decoder.bind(request).join();
   var transaction = jsonDecode(content) as Map;
+
+  print(transaction);
   // 동영상인지 댓글인지를 확인
   // 댓글의 경우 해당 동영상의 식별id와 작성한 댓글 내용이 나타날 것임
   
@@ -137,30 +139,35 @@ void createContents(HttpRequest request, MySQLConnection conn) async {
   //  videoId : string
   //  commentContents : String
   //}
-  var _contentType = transaction["_contentType"];
+
   var user_id = transaction['user_id'];
   var user_password = transaction['user_password'];
+  var videoId = transaction["video_id"];
+  var commentId = "${videoId}DEF";
+  var commentContents = transaction["contents"];
 
-  if (_contentType == 'COMMENT_STRING') {
-    //댓글인 경우 해당
-    var videoId = transaction["videoId"];
-    var commentId = transaction["commentId"];
-    var commentContents = transaction["commentContents"];
+  print("$user_id, $user_password, $commentId");
 
-    // 데이터베이스에 해당 댓글을 유저 아이디와 비밀번호를 포함하여 등록
-    await conn.execute("insert into comments_table values (:comment_id, :user_id, :user_password, :video_id, :comments_body)",
-      {
-        "comment_id" : commentId, 
-        "user_id" : user_id, 
-        "user_password" : user_password, 
-        "video_id" : videoId, 
-        "contents" : commentContents
-      });
-  } else {
-    print("\$ ::WRONG TYPE COMMAND::");
+  // 데이터베이스에 해당 댓글을 유저 아이디와 비밀번호를 포함하여 등록
+  try{
+  await conn.execute("insert into comments_table values (:comment_id, :user_id, :user_password, :video_id, :contents)",
+        {
+          "comment_id" : commentId, 
+          "user_id" : user_id, 
+          "user_password" : user_password, 
+          "video_id" : videoId, 
+          "contents" : commentContents
+    });
+    request.response
+      ..statusCode = HttpStatus.ok
+      ..write(content);
+    await request.response.close();
+  } catch (error) {
+    request.response
+      ..statusCode = HttpStatus.notImplemented
+      ..write(error);
+    await request.response.close();
   }
-
-  printAndSendHttpResponse(request, content);
   
 }
 
@@ -212,8 +219,9 @@ void readContents(HttpRequest request, MySQLConnection conn) async {
 
   var transaction = jsonDecode(content) as Map;
 
-  var videoId = transaction["videoId"];
-
+  var videoId = transaction["video_id"];
+  print("\$ Posted Information::$transaction");
+  print("\$ Posted VideoID::$videoId");
   var result = await conn.execute("select user_id, contents from comments_table where video_id = :videoId",
     {"videoId" : videoId} 
   );
@@ -221,6 +229,7 @@ void readContents(HttpRequest request, MySQLConnection conn) async {
 
   //비디오가 없는 경우
   if (result.isEmpty) {
+    print("\$ ::NotVideoInDatabase::numOfResult ${result.numOfRows}");
     request.response
       ..statusCode = HttpStatus.noContent
       ..write("This Video dont't hvae Any Comments");
@@ -230,17 +239,17 @@ void readContents(HttpRequest request, MySQLConnection conn) async {
   }
 
 
-    for (final row in result.rows) {
+  for (final row in result.rows) {
+    print("\$ Result List::${row.assoc()}");
     jsonList.add(row.assoc());
   }
 
-  String jsonData = jsonEncode(jsonList);
-  
+  var jsonData = jsonEncode(jsonList);
+  print("JsonData::$jsonList");
   request.response
     ..headers.contentType = ContentType('text', 'plain', charset: 'utf8')
-    ..headers.contentLength = content.length
     ..statusCode = HttpStatus.ok
-    ..write(content);
+    ..write(jsonData);
   await request.response.close();
 
    //흐름도
@@ -271,7 +280,8 @@ void updateComment(HttpRequest request, MySQLConnection conn) async {
       await conn.execute("update comments_table SET contents = :commentContents where comment_id = :commentId", {"commentContents" : commentContents, "commentId" : commentId});
       result = await conn.execute("select * from comments_table where comment_id = :commentId", {"commentId" : commentId});
       
-      for (final row in result.rows) {
+      for (final row in result.rows) 
+      {
         print("\$ Updated Information::${row.assoc()}");
       }
 
