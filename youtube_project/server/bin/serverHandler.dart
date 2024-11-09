@@ -1,9 +1,18 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math';
 import 'package:mime/mime.dart';
 import 'package:mysql_client/mysql_client.dart';
 
-Future<Map<String,dynamic>> handleFileUpload(HttpRequest request) async {
+
+String createRandomId() {
+  const charactors = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  final random = Random();
+  return List.generate(30, (index) => charactors[random.nextInt(charactors.length)]).join();
+}
+
+
+Future<Map<String,dynamic>> handleFileUpload(HttpRequest request, MySQLConnection conn) async {
   Map<String,dynamic> information = {};
   try {
     final contentType = request.headers.contentType;
@@ -27,14 +36,30 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request) async {
     print("\$ Start handling Video File");
     // MimeMultipartTransformer로 multipart 데이터를 처리합니다.
     final transformer = MimeMultipartTransformer(boundary);
-    final parts = await transformer.bind(request).toList();
+    final parts = await transformer.bind(request).toList();  
 
     String? userId;
     String? userPassword;
     String? description;
-    String? video_id;
-    String? video_name;
-    String video_path = 'uploads/';
+    String? video_name = "unsigned";
+    String video_id = "x1a55XF1";
+
+    bool isExist = true;
+    do {
+      var result = await conn.execute("select * from video_table where video_id = :video_id", {"video_id" : video_id});
+      if (result.numOfRows != 0) {
+        print("\$ Same Video ID In Server::$video_id");
+        video_id = createRandomId();
+        print("\$ Exchange Video ID::$video_id");
+        print("\$ Check Again If the same ID is in the DB...");
+      }
+      else {
+        print("\$ ID is Completly Orthogonal::");
+        isExist = false;
+      }
+    } while (isExist);
+
+    String video_path = 'videoUpload/$video_id';
 
     for (final part in parts) {
       final contentDisposition = part.headers['content-disposition'];
@@ -43,7 +68,7 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request) async {
         if (contentDisposition.contains('filename=')) {
           final filename = RegExp(r'filename="([^"]*)"').firstMatch(contentDisposition)?.group(1);
           if (filename != null) {
-            video_path = video_path + filename;
+            video_path = "${video_path}/video.mp4";
             final file = File(video_path);
             await file.create(recursive: true);
             await part.pipe(file.openWrite());
@@ -64,8 +89,6 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request) async {
             userPassword = await part.transform(utf8.decoder).join();
           } else if (contentDisposition.contains('name="description"')) {
             description = await part.transform(utf8.decoder).join();
-          } else if (contentDisposition.contains('name="video_id"')) {
-            video_id = await part.transform(utf8.decoder).join();
           } else if (contentDisposition.contains('name="video_name"')) {
             video_name = await part.transform(utf8.decoder).join();
           }
@@ -78,11 +101,11 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request) async {
     // id, password, description 처리
     // description의 경우 작성되지 않은 경우 [내용 없음]이라고 자동으로 채워서 서버에 전송되도록 프론트엔드를 구성
     if (userId != null && userPassword != null && description != null) {
-      print("Received Video ID: $video_id");
-      print("Received Video Name : $video_name");
-      print('Received ID: $userId');
-      print('Received Password: $userPassword');
-      print('Received Description: $description');
+      print(" & Received Video ID: $video_id");
+      print(" & Received Video Name : $video_name");
+      print(' & Received ID: $userId');
+      print(' & Received Password: $userPassword');
+      print(' & Received Description: $description');
       information = { "video_id" : video_id, 
                       "video_name" : video_name,
                       "user_id" : userId,
@@ -96,7 +119,6 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request) async {
         ..close();
       
     }
-    print(information);
     return information;
   } catch (e) {
     print('Error during file upload: $e');

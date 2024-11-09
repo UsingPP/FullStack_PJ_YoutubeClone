@@ -58,17 +58,16 @@ print("\$ SQL Connect");
     //혹은 동영상을 전송, 동영상을 발송
     print("\$ Request in Server");
     try {
-      print("${request.uri.path} and ${request.method}");
       switch (request.method) {
         case 'POST' : // 동영상이나 댓글을 업로드
-          if (request.uri.path == '/videoUpload') 
+          if (request.uri.path == '/videoUpload${RegExp(r'(\/[^/]+)').firstMatch(request.uri.path.substring(1))?.group(1)}') 
           {
             print('\$ Video Post request in Server');
-            Future<Map<String,dynamic>> infomation = handleFileUpload(request);
+            Future<Map<String,dynamic>> infomation = handleFileUpload(request, conn);
             await infomation.then((info) 
             {
-              print(info);
-              //conn.execute("INSERT INTO VIDEO_TABLE VALUE (:video_id, :video_name, :user_id, :user_password, :video_url, :description)", info);
+              conn.execute("INSERT INTO VIDEO_TABLE VALUE (:video_id, :video_name, :user_id, :user_password, :video_url, :description)", info);
+              print("\$ Complete::Save Video Information In DB");
             }
             ).catchError((error) {
               print("ExceptionError::$error");
