@@ -5,7 +5,11 @@ import "package:flutter/src/material/elevated_button.dart";
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart'; // kIsWeb을 사용하기 위해 추가
+import 'package:better_player/better_player.dart';
 
+
+
+//kI0Uh2pOIw1AVr2SAeAVNz2XblZunr 예제용 비디오 아이디
 void main() {
   runApp(MyApp());
 }
@@ -41,7 +45,7 @@ class MainPage extends StatelessWidget {
               },
             ),
             ElevatedButton(
-              child: const Text("Video View Page#Test"),
+              child: const Text("Text Upload Page#Test"),
               onPressed: () {
                 Navigator.push(
                   context, 
@@ -58,6 +62,24 @@ class MainPage extends StatelessWidget {
                 );
               },
             ),
+            ElevatedButton(
+              child: const Text("Comment Update Page#Test"),
+              onPressed: () {
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(builder: (context) => CommentUpdatePage()),
+                );
+              },
+            ),
+            ElevatedButton(
+              child: const Text("Watch Video"),
+              onPressed: () {
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(builder: (context) => VideoWatch()),
+                );
+              },
+            ),
           ],
 
         )        
@@ -67,12 +89,11 @@ class MainPage extends StatelessWidget {
 }
 
 
-
+//비디오 업로드
 class VideoUploadPage extends StatefulWidget {
   @override
   _VideoUploadPageState createState() => _VideoUploadPageState();
 }
-
 class _VideoUploadPageState extends State<VideoUploadPage> {
   PlatformFile? _selectedFile;
   String _uploadStatus = 'No file selected';
@@ -197,12 +218,64 @@ class _VideoUploadPageState extends State<VideoUploadPage> {
   }
 }
 
+class VideoWatch extends StatefulWidget {
+  @override
+  _VideoWatchState createState() => _VideoWatchState();
+}
 
+class _VideoWatchState extends State<VideoWatch> {
+  final video_id = 'kI0Uh2pOIw1AVr2SAeAVNz2XblZunr';
+  late String serverPath;
+  late BetterPlayerController _betterPlayerController;
+
+  @override
+  void initState() {
+    super.initState();
+    debugPrint("init");
+    serverPath = "http://10.0.2.2:8080/videoRead/${video_id}/output.m3u8";
+    debugPrint(serverPath);
+    final BetterPlayerDataSource dataSource = BetterPlayerDataSource(
+      BetterPlayerDataSourceType.network,
+      serverPath,);
+
+    _betterPlayerController = BetterPlayerController(
+        const BetterPlayerConfiguration(
+          aspectRatio: 16 / 9,
+          autoPlay: true,
+          looping: false,
+          controlsConfiguration: BetterPlayerControlsConfiguration(
+          enablePlayPause: true,
+          enableFullscreen: true,
+          ),
+        ),
+        betterPlayerDataSource: dataSource,
+      );
+  }
+
+  @override
+  void dispose() {
+    _betterPlayerController.dispose();
+    super.dispose();
+  }  
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("HLS Player"),
+      ),
+      body: Center(
+        child: BetterPlayer(
+          controller: _betterPlayerController,
+        ),
+      ),
+    );
+  }
+}
+
+//텍스트 업로드
 class VideoViewPage extends StatefulWidget {
   @override 
   _VideoViewPageState createState() => _VideoViewPageState();
 }
-
 class _VideoViewPageState extends State<VideoViewPage> {  
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -280,14 +353,89 @@ class _VideoViewPageState extends State<VideoViewPage> {
   }
 }
 
+//텍스트 업데이트
+class CommentUpdatePage extends StatefulWidget {
+  @override
+  _CommentUpdateState createState() => _CommentUpdateState();
+}
+class _CommentUpdateState extends State<CommentUpdatePage> {
+  final TextEditingController _commentEditingController = TextEditingController();
+  final TextEditingController _idEditingController = TextEditingController();
+  final TextEditingController _passwordEditingController = TextEditingController();
+
+  Future<void> _updateCommentToServer() async {
+    HttpClientRequest httpRequest;
+    HttpClientResponse httpResponse;
+    var httpClient = HttpClient();
+
+    var data = {
+      "comment_id" : "x1a55XF1B",
+      "user_id" : _idEditingController.text,
+      "user_password" : _passwordEditingController.text,
+      "contents" : _commentEditingController.text
+    };
+
+    var jsonData = jsonEncode(data);
+    try{
+      var serverPath = "/commentUpdate";
+      httpRequest = await httpClient.post("10.0.2.2", 8080, serverPath)
+        ..headers.contentType = ContentType("text", 'plain')
+        ..write(jsonData);
+      httpResponse = await httpRequest.close();
+      if (httpResponse.statusCode == HttpStatus.ok) {
+        print("Your Comment is Changed");
+      }
+      else {
+        debugPrint("::::ERROR::${httpResponse.statusCode}:::");
+        debugPrint(await httpResponse.transform(utf8.decoder).join());
+      }
+    } catch (error) {
+      debugPrint("SendErrorOcur::$error");
+      return;
+    }
+  }
 
 
+  Widget build(BuildContext context) {
+    return Scaffold(appBar: AppBar(
+        title: Text('Video Upload Client'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextField(
+              controller: _idEditingController,
+              decoration: InputDecoration(labelText: 'Enter User ID'),
+            ),
+            SizedBox(height: 10),
+            TextField(
+              controller: _passwordEditingController,
+              decoration: InputDecoration(labelText: 'Enter Password'),
+              obscureText: true,
+            ),
+            SizedBox(height: 10),
+            TextField(
+              controller: _commentEditingController,
+              decoration: InputDecoration(labelText: 'Enter Description'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _updateCommentToServer,
+              child: Text('Exchange Comments'),
+            ),
+          ],
+        ),
+      ),);
+  }
+}
 
+//텍스트 리드
 class CommentReadPage extends StatefulWidget {
   @override 
   _CommentReadState createState() => _CommentReadState();
 }
-
 class _CommentReadState extends State<CommentReadPage> {
   var _commentsData = [];
 
@@ -346,7 +494,7 @@ class _CommentReadState extends State<CommentReadPage> {
           itemBuilder: (context, index) {
             return Row(
               children : [
-                Text(_commentsData[index]["user_id"]),
+                Text("${_commentsData[index]["user_id"]} : "),
                 Text(_commentsData[index]["contents"])
                  ]
             );

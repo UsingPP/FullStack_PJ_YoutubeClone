@@ -11,6 +11,52 @@ String createRandomId() {
   return List.generate(30, (index) => charactors[random.nextInt(charactors.length)]).join();
 }
 
+Future<int> convertVideoToHls(String inputFilePath, String outputFileDirectory) async {
+  if (!File(inputFilePath).existsSync()) {
+    print("File not found: $inputFilePath");
+    return -1;
+  }
+  final outputDir = Directory(outputFileDirectory);
+  if (!await outputDir.exists()) {
+    print("WRONG Directory:::::::::::::::::::::::::::\n\n");
+    await outputDir.create(recursive: true);
+  }
+  final ffSetting = [
+    '-i', inputFilePath,
+    '-codec:', 'copy',
+    '-start_number', '0',
+    '-hls_time', '10',
+    '-hls_list_size', '0',
+    '-f', 'hls',
+    '-progress', 'pipe:1', 
+    '$outputFileDirectory/output.m3u8' // 결과물 파일 경로
+  ];
+
+  print("$inputFilePath ::::: $outputFileDirectory");
+
+  final process = await Process.start('ffmpeg', ffSetting);
+  
+  // 진행 상황을 실시간으로 출력
+   process.stdout.transform(utf8.decoder).listen((data) {
+     // 진행 정보 출력
+     print(data);
+   });
+
+   // 오류 출력도 읽기 (필요에 따라 처리 가능)
+   process.stderr.transform(utf8.decoder).listen((data) {
+     print('Error: $data');
+   });
+
+
+  final exitCode = await process.exitCode;
+    if (exitCode == 0) {
+    print('\$ Exchange Complete::Mp4ToM3u8.');
+  } else {
+    print('\$ FFmpeg Commend Fail: $exitCode');
+  }
+
+  return exitCode;
+}
 
 Future<Map<String,dynamic>> handleFileUpload(HttpRequest request, MySQLConnection conn) async {
   Map<String,dynamic> information = {};
@@ -36,7 +82,7 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request, MySQLConnectio
     print("\$ Start handling Video File");
     // MimeMultipartTransformer로 multipart 데이터를 처리합니다.
     final transformer = MimeMultipartTransformer(boundary);
-    final parts = await transformer.bind(request).toList();  
+    var parts = await transformer.bind(request).toList();  
 
     String? userId;
     String? userPassword;
@@ -60,8 +106,11 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request, MySQLConnectio
     } while (isExist);
 
     String video_path = 'videoUpload/$video_id';
+    String video_uri = video_path;
 
-    for (final part in parts) {
+    Stream<MimeMultipart> newParts = Stream.fromIterable(parts);
+
+    await for (final part in newParts) {
       final contentDisposition = part.headers['content-disposition'];
       if (contentDisposition != null) {
         // 파일 처리 부분
@@ -73,11 +122,15 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request, MySQLConnectio
             await file.create(recursive: true);
             await part.pipe(file.openWrite());
             
+            print("\$ Save Video in $video_path");
             request.response
               ..headers.add(HttpHeaders.accessControlAllowOriginHeader, "*")
               ..statusCode = HttpStatus.ok
               ..write('File uploaded successfully: $filename');
             await request.response.close();
+            
+            print("\$ Convert mp4 to m3u8 Start");
+            await convertVideoToHls(video_path, video_uri);
           }
         }
         // 텍스트 필드 처리 부분
@@ -95,9 +148,6 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request, MySQLConnectio
         }
       }
     }
-
-    print("\$ Save Video in $video_path");
-
     // id, password, description 처리
     // description의 경우 작성되지 않은 경우 [내용 없음]이라고 자동으로 채워서 서버에 전송되도록 프론트엔드를 구성
     if (userId != null && userPassword != null && description != null) {
@@ -110,7 +160,7 @@ Future<Map<String,dynamic>> handleFileUpload(HttpRequest request, MySQLConnectio
                       "video_name" : video_name,
                       "user_id" : userId,
                       "user_password" : userPassword,
-                      "video_url" : video_path,
+                      "video_url" : video_uri,
                       "description" : description};
     } else {
       request.response
@@ -184,28 +234,36 @@ void createContents(HttpRequest request, MySQLConnection conn) async {
       ..statusCode = HttpStatus.ok
       ..write(content);
     await request.response.close();
+    print("\n");
   } catch (error) {
     request.response
       ..statusCode = HttpStatus.notImplemented
       ..write(error);
     await request.response.close();
+    print("\n");
   }
   
 }
 
-void readVideo(HttpRequest request, MySQLConnection conn) async {
-  var content = await utf8.decoder.bind(request).join();
-  var transaction = jsonDecode(content) as Map;
+//m3u8 보내주기
+void m3u8ReadVideo(HttpRequest request, MySQLConnection conn) async {
+  //var content = await utf8.decoder.bind(request).join();
+  //var transaction = jsonDecode(content) as Map;
   //json 파일로 오는 request를 변환함
+  final requestList = request.uri.path.split('/');
+  print(requestList);
+  
+  var reqFileID = requestList[2];
+  var outputFile = requestList[3];
 
-  var reqFileID = transaction["video_id"];
+  print(reqFileID);
   var sqlResult = await conn.execute("select video_url from video_table where video_id = :reqFileID", 
   {
     "reqFileID" : reqFileID
   });
   //SQL의 videoID를 기준으로 비디오 url을 가져옴
 
-  if (sqlResult.numOfRows > 1) {
+  if (sqlResult.numOfRows > 1 || sqlResult.isEmpty) {
     request.response
       ..statusCode = HttpStatus.notFound
       ..write("Video Not Found");
@@ -213,20 +271,44 @@ void readVideo(HttpRequest request, MySQLConnection conn) async {
     return;
   }
 
-  String filePath = "/";
-  for (final row in sqlResult.rows) {
-    filePath = row.assoc()["video_url"]!;
-  }
-  // 파일의 이름 찾기 코드
+  // String filePath = "/";
+  // for (final row in sqlResult.rows) {
+  //   filePath = "/${row.colAt(0)}/output.m3u8";
+  // }
+  //   videoUpload/Wd7mifAHiJRpSRuRZFcL0fivVg7TiD가 파일 저장 경로인데
+  //  요청하는 uri는 videoRead/파일이름/output.m3u8
+  // 그럼 path에 supstring(10) 하면 파일이름/output.m3u8
+  var filePath = "videoUpload/${reqFileID}/output.m3u8";
+  print("${Directory.current.path}${filePath}");
 
   var videoFile = File(filePath);
 
   if (await videoFile.exists()) {
-    final videoStream = videoFile.openRead();
+    print("complete");
+    request.response.headers.contentType = ContentType(
+      request.uri.path.endsWith('.m3u8') ? 'application' : 'video',
+      request.uri.path.endsWith('.m3u8') ? 'vnd.apple.mpegurl' : 'mp2t'
+    );
+    await videoFile.openRead().pipe(request.response);
+  } else {
+    print("\$ :::NOT FOUND:::");
+    request.response.statusCode= HttpStatus.notFound;
+    request.response.write('VideoFile Not Found');
+    request.response.close();
+    }
+}
+//.ts 보내주기
+void tsReadVideo(HttpRequest request) async {
+  var filePath = "videoUpload/${request.uri.path.substring(10)}";
+  print(filePath);
+  var videoFile = File(filePath);
 
-    request.response.headers.contentType = ContentType('video', 'mp4');
-    request.response.headers.set('Content-Disposition', 'inline; filename="${videoFile.uri.pathSegments.last}"');
-    await videoStream.pipe(request.response);
+  if (await videoFile.exists()) {
+    request.response.headers.contentType = ContentType(
+      request.uri.path.endsWith('.m3u8') ? 'application' : 'video',
+      request.uri.path.endsWith('.m3u8') ? 'vnd.apple.mpegurl' : 'mp2t'
+    );
+    await videoFile.openRead().pipe(request.response);
   } else {
     request.response.statusCode= HttpStatus.notFound;
     request.response.write('VideoFile Not Found');
@@ -277,28 +359,32 @@ void readContents(HttpRequest request, MySQLConnection conn) async {
    //흐름도
    //해당 비디오에 대한 정보가 오면 그 비디오에 맞는 댓글을 가져옴
 }
-
 void updateComment(HttpRequest request, MySQLConnection conn) async {
   var content = await utf8.decoder.bind(request).join();
   var transaction = jsonDecode(content) as Map;
   //파싱
   var user_id = transaction['user_id'];
   var user_password = transaction['user_password'];
-  var commentId = transaction["commentId"];
+  var commentId = transaction["comment_id"];
   bool isRightUser = false;
   
+  print("ID : $user_id");
+  print("PW : $user_password");
+  print("CID : $commentId");
   //아이디와 비밀번호 조회 후 해당 유저가 작성한 코멘트인지를 확인함
   var result = await conn.execute('select user_id, user_password from comments_table where comment_id = :commentId', { "commentId" : commentId});
   for (final row in result.rows) {
+    print("${row.colAt(0)}, ${row.colAt(1)}");
     if ((row.colAt(0) == user_id) && (row.colAt(1) == user_password)){
       isRightUser = true;
       break;
     }
   }
-  
+
   if (isRightUser){
     try {
       var commentContents = transaction["contents"];
+      print(commentContents);
       await conn.execute("update comments_table SET contents = :commentContents where comment_id = :commentId", {"commentContents" : commentContents, "commentId" : commentId});
       result = await conn.execute("select * from comments_table where comment_id = :commentId", {"commentId" : commentId});
       
@@ -328,3 +414,4 @@ void updateComment(HttpRequest request, MySQLConnection conn) async {
   }
 
 }
+
