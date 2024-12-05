@@ -11,6 +11,54 @@ String createRandomId() {
   return List.generate(30, (index) => charactors[random.nextInt(charactors.length)]).join();
 }
 
+Future<void> SendVideoListToClient(HttpRequest request, MySQLConnection conn)  async {
+  List<Map<String, dynamic>> resultList = [];
+  final videoList= await conn.execute("select * from video_table");
+  try {
+
+    if (videoList.isEmpty) {
+      print("\$ ::NotVideoInDatabase::numOfResult ${videoList.numOfRows}");
+      request.response
+        ..statusCode = HttpStatus.noContent
+        ..write("Video noExist");
+      await request.response.close();
+
+      return;
+    }
+
+    for (final row in videoList.rows) {
+      resultList.add(row.assoc());
+    }
+
+    var jsonList = jsonEncode(resultList);
+    print(jsonList.length);
+
+
+    request.response
+      ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
+      ..headers.add(HttpHeaders.transferEncodingHeader, 'chunked');
+
+    int chunkSize = 1024;
+    int totalLength = jsonList.length;
+    int position = 0;
+
+    //청크로 보낼 거임
+    while (position < totalLength) {
+      int end = (position + chunkSize < totalLength) ? position + chunkSize : totalLength;
+      String chunk = jsonList.substring(position, end);
+      request.response.write(chunk);
+      position = end;
+    }
+
+    print("\$ Send Video List to Client");
+    await request.response.close();
+
+  }
+  catch (err) {
+    print(err);
+  }
+}
+
 Future<int> convertVideoToHls(String inputFilePath, String outputFileDirectory) async {
   if (!File(inputFilePath).existsSync()) {
     print("File not found: $inputFilePath");
@@ -25,7 +73,7 @@ Future<int> convertVideoToHls(String inputFilePath, String outputFileDirectory) 
     '-i', inputFilePath,
     '-codec:', 'copy',
     '-start_number', '0',
-    '-hls_time', '10',
+    '-hls_time', '30',
     '-hls_list_size', '0',
     '-f', 'hls',
     '-progress', 'pipe:1', 
@@ -326,7 +374,7 @@ void readContents(HttpRequest request, MySQLConnection conn) async {
   var videoId = transaction["video_id"];
   print("\$ Posted Information::$transaction");
   print("\$ Posted VideoID::$videoId");
-  var result = await conn.execute("select user_id, contents from comments_table where video_id = :videoId",
+  var result = await conn.execute("select user_id, contents, comment_id from comments_table where video_id = :videoId",
     {"videoId" : videoId} 
   );
    //해당 비디오의 전체 유저들과 쓴 댓글을 전부 추출

@@ -14,6 +14,8 @@ void main() {
   runApp(MyApp());
 }
 
+
+
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -22,7 +24,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: MainPage(),
+      home: VideoWatchListPage(),
     );
   }
 }
@@ -44,42 +46,6 @@ class MainPage extends StatelessWidget {
                 );
               },
             ),
-            ElevatedButton(
-              child: const Text("Text Upload Page#Test"),
-              onPressed: () {
-                Navigator.push(
-                  context, 
-                  MaterialPageRoute(builder: (context) => VideoViewPage()),
-                );
-              },
-            ),
-            ElevatedButton(
-              child: const Text("Comment View Page#Test"),
-              onPressed: () {
-                Navigator.push(
-                  context, 
-                  MaterialPageRoute(builder: (context) => CommentReadPage()),
-                );
-              },
-            ),
-            ElevatedButton(
-              child: const Text("Comment Update Page#Test"),
-              onPressed: () {
-                Navigator.push(
-                  context, 
-                  MaterialPageRoute(builder: (context) => CommentUpdatePage()),
-                );
-              },
-            ),
-            ElevatedButton(
-              child: const Text("Watch Video"),
-              onPressed: () {
-                Navigator.push(
-                  context, 
-                  MaterialPageRoute(builder: (context) => VideoWatch()),
-                );
-              },
-            ),
           ],
 
         )        
@@ -87,6 +53,8 @@ class MainPage extends StatelessWidget {
     );
   }
 }
+
+
 
 
 //비디오 업로드
@@ -212,59 +180,6 @@ class _VideoUploadPageState extends State<VideoUploadPage> {
               child: Text('Upload File'),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class VideoWatch extends StatefulWidget {
-  @override
-  _VideoWatchState createState() => _VideoWatchState();
-}
-
-class _VideoWatchState extends State<VideoWatch> {
-  final video_id = 'kI0Uh2pOIw1AVr2SAeAVNz2XblZunr';
-  late String serverPath;
-  late BetterPlayerController _betterPlayerController;
-
-  @override
-  void initState() {
-    super.initState();
-    debugPrint("init");
-    serverPath = "http://10.0.2.2:8080/videoRead/${video_id}/output.m3u8";
-    debugPrint(serverPath);
-    final BetterPlayerDataSource dataSource = BetterPlayerDataSource(
-      BetterPlayerDataSourceType.network,
-      serverPath,);
-
-    _betterPlayerController = BetterPlayerController(
-        const BetterPlayerConfiguration(
-          aspectRatio: 16 / 9,
-          autoPlay: true,
-          looping: false,
-          controlsConfiguration: BetterPlayerControlsConfiguration(
-          enablePlayPause: true,
-          enableFullscreen: true,
-          ),
-        ),
-        betterPlayerDataSource: dataSource,
-      );
-  }
-
-  @override
-  void dispose() {
-    _betterPlayerController.dispose();
-    super.dispose();
-  }  
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("HLS Player"),
-      ),
-      body: Center(
-        child: BetterPlayer(
-          controller: _betterPlayerController,
         ),
       ),
     );
@@ -431,24 +346,131 @@ class _CommentUpdateState extends State<CommentUpdatePage> {
   }
 }
 
-//텍스트 리드
+//텍스트 리드 :::::
 class CommentReadPage extends StatefulWidget {
-  @override 
+  final Map<String, dynamic> data;
+  CommentReadPage({required this.data});
+  @override
   _CommentReadState createState() => _CommentReadState();
 }
 class _CommentReadState extends State<CommentReadPage> {
   var _commentsData = [];
+  var video_id = "";
+  late String videoServerPath;
+  BetterPlayerController? _betterPlayerController;
 
-  //동영상이랑 댓글을 보내기
-  Future<void> DownloadCommentFile() async {
+  // 댓글 관련 팝업 생성
+  AlertDialog userLogInAndSendChangeMessagePopup(BuildContext context, int offset, {String commentId = "NULL"}) {
+    // offset이 0인 경우 => 수정모드. 댓글을 수정하기 위해서 작동함
+    // offset이 1인 경우 => 삭제 모드. 댓글을 삭제하는 메세지를 서버로 전송함
+    // offset이 2인 경우 => 댓글 작성
+    TextEditingController userIdTextController = TextEditingController();
+    TextEditingController userPasswordTextController = TextEditingController();
+    TextEditingController userCommentTextController = TextEditingController();
+                  print( commentId);
+
+    return AlertDialog(
+      content: SizedBox(
+        height: offset == 1 ? 150 : 370,
+          child: Column(
+          children: [
+            Text( offset == 0 ? "댓글 수정" :
+              (offset == 1 ? "댓글 삭제" : "댓글 작성"),
+              style: TextStyle( fontSize: 14),
+            ),
+            SizedBox(height: 10,),
+            TextField(
+              controller: userIdTextController,
+              decoration: InputDecoration(labelText: "아이디"),
+            ),
+            TextField(
+              controller: userPasswordTextController,
+              decoration: InputDecoration(labelText: "패스워드"),
+            ),
+            SizedBox(height: 5,),
+            if (offset == 0 || offset == 2)
+              TextField(
+                controller: userCommentTextController,
+                decoration: InputDecoration(
+                  labelText: offset == 0 ? "수정 내용" : "댓글 작성",
+                  border: OutlineInputBorder(), // 테두리 추가
+                  alignLabelWithHint: true, // 여러 줄 텍스트에 레이블 정렬
+                ),
+                maxLines: 20, // 텍스트 필드를 5줄 높이로
+                minLines: 7, // 최소 3줄 높이로 보이도록 설정
+                keyboardType: TextInputType.multiline,
+              ),
+          ],
+      )
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: Text("취소"),
+        ),
+        TextButton(
+          onPressed: () {
+            if (offset == 0) {
+              setState(() {
+                _updateCommentToServer(commentId, userIdTextController.text, userPasswordTextController.text, userCommentTextController.text);
+              });
+            }
+            // 서버로 메시지 전송 로직
+            Navigator.of(context).pop();
+          },
+          child: Text("확인"),
+        ),
+      ],
+    );
+  }
+
+
+  Future<void> _updateCommentToServer(String comment_id, String user_id, String user_password, String comments) async {
+    HttpClientRequest httpRequest;
+    HttpClientResponse httpResponse;
+    var httpClient = HttpClient();
+
+    var data = {
+      "comment_id" : comment_id,
+      "user_id" : user_id,
+      "user_password" : user_password,
+      "contents" : comments
+    };
+
+    print(data);
+
+    var jsonData = jsonEncode(data);
+    try{
+      var serverPath = "/commentUpdate";
+      httpRequest = await httpClient.post("10.0.2.2", 8080, serverPath)
+        ..headers.contentType = ContentType("text", 'plain')
+        ..write(jsonData);
+      httpResponse = await httpRequest.close();
+      if (httpResponse.statusCode == HttpStatus.ok) {
+        print("Your Comment is Changed");
+      }
+      else {
+        debugPrint("::::ERROR::${httpResponse.statusCode}:::");
+        debugPrint(await httpResponse.transform(utf8.decoder).join());
+      }
+    } catch (error) {
+      debugPrint("SendErrorOcur::$error");
+      return;
+    }
+  }
+
+  //댓글을 가져오기
+  Future<void> DownloadCommentFile(String video_id) async {
     var httpClient = HttpClient();
     HttpClientRequest httpRequest;
     HttpClientResponse httpResponse;
     Map jsonContent = {
-      'video_id': 'x1a55XF1',
+      'video_id': video_id,
     };
 
-    var content = await jsonEncode(jsonContent);
+    var content = jsonEncode(jsonContent);
 
     try {
 
@@ -481,26 +503,305 @@ class _CommentReadState extends State<CommentReadPage> {
   @override
   void initState() {
     super.initState();
-    DownloadCommentFile();
-    print(_commentsData.toString());
+    video_id = widget.data["VIDEO_ID"];
+    videoServerPath = "";//"http://10.0.2.2:8080/videoRead/${video_id}/output.m3u8";
+    debugPrint("init:::${videoServerPath}");
+
+
+
+    final BetterPlayerDataSource dataSource = BetterPlayerDataSource(
+      BetterPlayerDataSourceType.network,
+      videoServerPath,
+      // bufferingConfiguration: BetterPlayerBufferingConfiguration(
+      //   minBufferMs: 25000, // 최소 버퍼 크기 (밀리초 단위)
+      //   maxBufferMs: 6553600, // 최대 버퍼 크기 (밀리초 단위)
+      //   bufferForPlaybackMs: 25000, // 재생을 시작하기 전에 필요한 버퍼 크기
+      //   bufferForPlaybackAfterRebufferMs: 60000, // 재버퍼링 후 재생을 시작하기 전에 필요한 버퍼 크기
+      // ) 아니 뭐가 문제야 이거
+    );
+
+    _betterPlayerController = BetterPlayerController(
+        const BetterPlayerConfiguration(
+          aspectRatio: 16 / 9,
+          autoPlay: true,
+          looping: false,
+          controlsConfiguration: BetterPlayerControlsConfiguration(
+            enablePlayPause: true,
+            enableFullscreen: true,
+          ),
+        ),
+        betterPlayerDataSource: dataSource,
+      );
+
+    DownloadCommentFile(video_id);
+
   }
- 
+  @override
+  void dispose() {
+    _betterPlayerController?.dispose();
+    super.dispose();
+  }  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body : 
-        ListView.builder(
-          itemCount: _commentsData.length,
-          itemBuilder: (context, index) {
-            return Row(
-              children : [
-                Text("${_commentsData[index]["user_id"]} : "),
-                Text(_commentsData[index]["contents"])
-                 ]
-            );
-          },
+        body: Column(
+          children: [
+          _betterPlayerController != null
+              ? Container(
+                  color: Colors.black, // 예시로 배경색 지정
+                  child: BetterPlayer(controller: _betterPlayerController!),
+                )
+              : Container(
+                width: 300,
+                color : Colors.black,
+                child: CircularProgressIndicator()
+              ), // 초기화 중일 때 로딩 표시
+          Container(
+            alignment: Alignment.centerLeft,
+            padding : EdgeInsets.all(8.0),
+            child: 
+              Column( 
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.data["VIDEO_NAME"],
+                    style : TextStyle( fontSize: 21),
+                  ),
+                  Text(
+                    widget.data["USER_ID"],
+                    style : TextStyle( 
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  )
+                ],
+              ),
+          ),
+          //여기부터는 댓글 뷰
+          //댓글 입력 기능 => 버튼 누르면 팝업이 떠서 댓글 작성 가능
+          Container(),
+          Expanded(
+            child : ListView.builder(
+              itemCount: _commentsData.length,
+              itemBuilder: (context, index) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 추가된 Container
+                    Container(
+                      width: 50,
+                      height: 50,
+                      margin: EdgeInsets.all(8.0),
+                      decoration: BoxDecoration(
+                        color: Colors.blue, // 배경색
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          _commentsData[index]["user_id"][0], // 유저 ID의 첫 글자 표시
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 1),
+                    Container(
+                      height: 50,
+                      margin: EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            // color: Colors.black,
+                            child : Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children : [
+                                Container(//이름
+                                  child : Text(
+                                    "${_commentsData[index]["user_id"]}",
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),            
+                                ),
+                                SizedBox(width : 12),
+                                GestureDetector(
+                                  onTap: () {
+                                    showDialog(context: context, builder: (context) {
+                                      return userLogInAndSendChangeMessagePopup(context, 0, commentId: _commentsData[index]["comment_id"]);
+                                    }
+                                    );
+                                    print("수정");
+                                  },
+                                  child : Container( // 수정
+                                    child : 
+                                      Text("수정",
+                                      style: TextStyle(fontSize: 9),)
+                                  ),
+                                ),
+                                SizedBox(width : 5), 
+                                GestureDetector(
+                                  onTap: () {
+                                    showDialog(context: context, builder: (context) { return userLogInAndSendChangeMessagePopup(context, 1, commentId: _commentsData[index]["comment_id"]);});
+                                    print("삭제");
+                                  },
+                                  child : Container( // 수정
+                                    child : 
+                                      Text("삭제",
+                                      style: TextStyle(fontSize: 9),)
+                                  ),
+                                ),
+                              ]
+                            )
+                          ),
+                          Text(_commentsData[index]["contents"]),
+                        ],
+                      ),
+                    )
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       )
     );
   }
 
+}
+
+
+//사실상 현재 메인 페이지
+class VideoWatchListPage extends StatefulWidget {
+ @override 
+  _VideoWatchListState createState() => _VideoWatchListState();
+}
+class _VideoWatchListState extends State<VideoWatchListPage> {
+  List<dynamic> videoData = [];
+  int videoLength = 0;
+
+  Future<void> GetVideoFromServer() async {
+    var httpClient = HttpClient();
+    HttpClientRequest httpRequest;
+    HttpClientResponse httpResponse;
+
+    try {
+      debugPrint("Video Request");
+      var serverPath = "/GetVideoList";
+      httpRequest = await httpClient.post("10.0.2.2", 8080, serverPath)
+        ..headers.contentType = ContentType('application', 'json', charset: 'utf-8');
+      httpResponse = await httpRequest.close();
+      //이미지 주소, 동영상 제목, 동영상 코드, 작성자가 올 것
+
+      StringBuffer stringHandler = StringBuffer();
+      await for (var chunk in httpResponse) {
+        String chunkStr = utf8.decode(chunk);
+        stringHandler.write(chunkStr);
+      }
+      try {
+        String fullData = stringHandler.toString();
+        setState(() {
+          videoData = jsonDecode(fullData) as List; // JSON 디코딩
+          print(videoData.length);
+        },);
+      } catch (error) {
+        print('Error processing data: $error');
+      }
+      //videoData[0] => 첫번째 값 { "A" : ~~}
+      print(videoData[0]);
+      print(videoData[0]["USER_ID"]);
+    }
+    catch(error) {
+      print("Error::$error");
+      return;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration.zero, () async {
+      await GetVideoFromServer();
+    });
+  }
+  
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: ListView.builder(
+        itemCount: videoData.length,  // 리스트의 개수만큼 아이템 생성
+        itemBuilder: (context, index) {
+          return GestureDetector( // 해당 컨테이너를 누르면 영상 동작
+            onTap: () {
+              print("::::::::::::::::::::::::::::::${videoData[index]}");
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => CommentReadPage(data: videoData[index])),
+              );
+            },
+            child: Container(
+              margin: EdgeInsets.all(8.0),
+              color: Colors.black,  // 각 아이템마다 색상을 다르게 설정
+              height: 300,  // 컨테이너 높이 설정
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    margin: EdgeInsets.all(2.0),
+                    color: Colors.black12,
+                    height: 240,
+                  ),
+                  SizedBox(height:5),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        margin: EdgeInsets.all(8.0),
+                        decoration: BoxDecoration(
+                          color: Colors.blue, // 배경색
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            videoData[index]["USER_ID"][0], // 유저 ID의 첫 글자 표시
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            videoData[index]["VIDEO_NAME"],
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            videoData[index]["USER_ID"],
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ],
+                      )
+                    ],
+                  )
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }

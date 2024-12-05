@@ -63,6 +63,9 @@ print("\$ SQL Connect");
     //혹은 동영상을 전송, 동영상을 발송
     print("\$ Request in Server::RequestType:${request.method}::::RequestPath:${request.uri.path}");
     try {
+      if (request.uri.path == '/GetVideoList') {
+        SendVideoListToClient(request, conn);
+      }
       switch (request.method) {
         case 'POST' : // 동영상이나 댓글을 업로드
           if (request.uri.path == '/videoUpload${returnRegExp(request)}')
