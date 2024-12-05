@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Video Upload Client',
+      title: 'MyApp',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -29,30 +29,30 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class MainPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              child: const Text("Video Upload Page#Test"),
-              onPressed: () {
-                Navigator.push(
-                  context, 
-                  MaterialPageRoute(builder: (context) => VideoUploadPage()),
-                );
-              },
-            ),
-          ],
+// class MainPage extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       body: Center(
+//         child: Column(
+//           mainAxisAlignment: MainAxisAlignment.center,
+//           children: [
+//             ElevatedButton(
+//               child: const Text("Video Upload Page#Test"),
+//               onPressed: () {
+//                 Navigator.push(
+//                   context, 
+//                   MaterialPageRoute(builder: (context) => VideoUploadPage()),
+//                 );
+//               },
+//             ),
+//           ],
 
-        )        
-      ),
-    );
-  }
-}
+//         )        
+//       ),
+//     );
+//   }
+// }
 
 
 
@@ -186,167 +186,7 @@ class _VideoUploadPageState extends State<VideoUploadPage> {
   }
 }
 
-//텍스트 업로드
-class VideoViewPage extends StatefulWidget {
-  @override 
-  _VideoViewPageState createState() => _VideoViewPageState();
-}
-class _VideoViewPageState extends State<VideoViewPage> {  
-  final TextEditingController _idController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-
-
-
-  Future<void> sendCommentToServer() async {
-    HttpClientRequest httpRequest;
-    HttpClientResponse httpResponse;
-    var httpClient = HttpClient();
-    var jsonContent = {
-      "conmment_id" : _idController.text,
-      "user_id" : _idController.text,
-      "user_password" : _passwordController.text,
-      "video_id" : "x1a55XF1",
-      "contents" : _descriptionController.text
-    };
-
-
-    var jsonData = jsonEncode(jsonContent);
-
-    try {
-      var serverPath = "/commentUpload";
-      httpRequest = await httpClient.post("10.0.2.2", 8080, serverPath)
-        ..headers.contentType = ContentType("text", 'plain')
-        ..write(jsonData);
-      
-      httpResponse = await httpRequest.close();
-      if (httpResponse.statusCode == HttpStatus.ok) {
-        print("Your Comment is in Server");
-      }
-      else {
-        print("ERROR::${httpResponse.statusCode}");
-      }
-    } catch (error) {
-      print("SendErrorOcur::$error");
-      return;
-    }
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-       title: Text("Video Page Client"),
-      ), 
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            
-            TextField(
-              controller: _idController,
-              decoration: InputDecoration(labelText: 'Enter User ID'),
-            ),
-            SizedBox(height: 10),
-            TextField(
-              controller: _passwordController,
-              decoration: InputDecoration(labelText: 'Enter Password'),
-              obscureText: true,
-            ),
-            SizedBox(height: 10),
-            TextField(
-              controller: _descriptionController,
-              decoration: InputDecoration(labelText: 'Enter Description'),
-            ),
-            ElevatedButton(onPressed: sendCommentToServer, child: Text("Post Text")),
-          ]
-          )
-
-        ),
-      );
-  }
-}
-
-//텍스트 업데이트
-class CommentUpdatePage extends StatefulWidget {
-  @override
-  _CommentUpdateState createState() => _CommentUpdateState();
-}
-class _CommentUpdateState extends State<CommentUpdatePage> {
-  final TextEditingController _commentEditingController = TextEditingController();
-  final TextEditingController _idEditingController = TextEditingController();
-  final TextEditingController _passwordEditingController = TextEditingController();
-
-  Future<void> _updateCommentToServer() async {
-    HttpClientRequest httpRequest;
-    HttpClientResponse httpResponse;
-    var httpClient = HttpClient();
-
-    var data = {
-      "comment_id" : "x1a55XF1B",
-      "user_id" : _idEditingController.text,
-      "user_password" : _passwordEditingController.text,
-      "contents" : _commentEditingController.text
-    };
-
-    var jsonData = jsonEncode(data);
-    try{
-      var serverPath = "/commentUpdate";
-      httpRequest = await httpClient.post("10.0.2.2", 8080, serverPath)
-        ..headers.contentType = ContentType("text", 'plain')
-        ..write(jsonData);
-      httpResponse = await httpRequest.close();
-      if (httpResponse.statusCode == HttpStatus.ok) {
-        print("Your Comment is Changed");
-      }
-      else {
-        debugPrint("::::ERROR::${httpResponse.statusCode}:::");
-        debugPrint(await httpResponse.transform(utf8.decoder).join());
-      }
-    } catch (error) {
-      debugPrint("SendErrorOcur::$error");
-      return;
-    }
-  }
-
-
-  Widget build(BuildContext context) {
-    return Scaffold(appBar: AppBar(
-        title: Text('Video Upload Client'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _idEditingController,
-              decoration: InputDecoration(labelText: 'Enter User ID'),
-            ),
-            SizedBox(height: 10),
-            TextField(
-              controller: _passwordEditingController,
-              decoration: InputDecoration(labelText: 'Enter Password'),
-              obscureText: true,
-            ),
-            SizedBox(height: 10),
-            TextField(
-              controller: _commentEditingController,
-              decoration: InputDecoration(labelText: 'Enter Description'),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _updateCommentToServer,
-              child: Text('Exchange Comments'),
-            ),
-          ],
-        ),
-      ),);
-  }
-}
-
-//텍스트 리드 :::::
+//동영상 시청 페이지
 class CommentReadPage extends StatefulWidget {
   final Map<String, dynamic> data;
   CommentReadPage({required this.data});
@@ -417,6 +257,16 @@ class _CommentReadState extends State<CommentReadPage> {
                 _updateCommentToServer(commentId, userIdTextController.text, userPasswordTextController.text, userCommentTextController.text);
               });
             }
+            else if (offset == 1) {
+              setState(() {
+                _deleteCommentToServer(commentId, userIdTextController.text, userPasswordTextController.text);
+              },);
+            }
+            else if (offset == 2) {
+              setState(() {
+                _sendCommentToServer(userIdTextController.text, userPasswordTextController.text, userCommentTextController.text);
+              },);
+            } 
             // 서버로 메시지 전송 로직
             Navigator.of(context).pop();
           },
@@ -426,7 +276,42 @@ class _CommentReadState extends State<CommentReadPage> {
     );
   }
 
+  //서버에 작성한 댓글 올리기
+  Future<void> _sendCommentToServer(String user_id, String user_password, String comments) async {
+    HttpClientRequest httpRequest;
+    HttpClientResponse httpResponse;
+    var httpClient = HttpClient();
+    var jsonContent = {
+      "user_id" : user_id,
+      "user_password" : user_password,
+      "video_id" : widget.data["VIDEO_ID"],
+      "contents" : comments
+    };
 
+
+    var jsonData = jsonEncode(jsonContent);
+
+    try {
+      var serverPath = "/commentUpload";
+      httpRequest = await httpClient.post("10.0.2.2", 8080, serverPath)
+        ..headers.contentType = ContentType("text", 'plain')
+        ..write(jsonData);
+      
+      httpResponse = await httpRequest.close();
+      if (httpResponse.statusCode == HttpStatus.ok) {
+        print("Your Comment is in Server");
+        await DownloadCommentFile(video_id);
+      }
+      else {
+        print("ERROR::${httpResponse.statusCode}");
+      }
+      
+    } catch (error) {
+      print("SendErrorOcur::$error");
+      return;
+    }
+  }
+  // 서버에 댓글 업데이트
   Future<void> _updateCommentToServer(String comment_id, String user_id, String user_password, String comments) async {
     HttpClientRequest httpRequest;
     HttpClientResponse httpResponse;
@@ -438,9 +323,6 @@ class _CommentReadState extends State<CommentReadPage> {
       "user_password" : user_password,
       "contents" : comments
     };
-
-    print(data);
-
     var jsonData = jsonEncode(data);
     try{
       var serverPath = "/commentUpdate";
@@ -450,6 +332,7 @@ class _CommentReadState extends State<CommentReadPage> {
       httpResponse = await httpRequest.close();
       if (httpResponse.statusCode == HttpStatus.ok) {
         print("Your Comment is Changed");
+        await DownloadCommentFile(video_id);
       }
       else {
         debugPrint("::::ERROR::${httpResponse.statusCode}:::");
@@ -461,6 +344,40 @@ class _CommentReadState extends State<CommentReadPage> {
     }
   }
 
+// 서버에서 댓글 삭제
+  Future<void> _deleteCommentToServer(String comment_id, String user_id, String user_password) async {
+    HttpClientRequest httpRequest;
+    HttpClientResponse httpResponse;
+    var httpClient = HttpClient();
+
+    var data = {
+      "comment_id" : comment_id,
+      "user_id" : user_id,
+      "user_password" : user_password,
+    };
+
+    var jsonData = jsonEncode(data);
+
+    try{
+      var serverPath = "/commentDelete";
+      httpRequest = await httpClient.post("10.0.2.2", 8080, serverPath)
+        ..headers.contentType = ContentType("text", 'plain')
+        ..write(jsonData);
+      httpResponse = await httpRequest.close();
+      if (httpResponse.statusCode == HttpStatus.ok) {
+        print("Your Comment is Deleted");
+        await DownloadCommentFile(video_id);
+      }
+      else {
+        debugPrint("::::ERROR::${httpResponse.statusCode}:::");
+        debugPrint(await httpResponse.transform(utf8.decoder).join());
+      }
+    } catch (error) {
+      debugPrint("SendErrorOcur::$error");
+      return;
+    }
+
+  }
   //댓글을 가져오기
   Future<void> DownloadCommentFile(String video_id) async {
     var httpClient = HttpClient();
@@ -504,7 +421,7 @@ class _CommentReadState extends State<CommentReadPage> {
   void initState() {
     super.initState();
     video_id = widget.data["VIDEO_ID"];
-    videoServerPath = "";//"http://10.0.2.2:8080/videoRead/${video_id}/output.m3u8";
+    videoServerPath = "http://10.0.2.2:8080/videoRead/${video_id}/output.m3u8";
     debugPrint("init:::${videoServerPath}");
 
 
@@ -545,6 +462,7 @@ class _CommentReadState extends State<CommentReadPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white10,
         body: Column(
           children: [
           _betterPlayerController != null
@@ -566,11 +484,14 @@ class _CommentReadState extends State<CommentReadPage> {
                 children: [
                   Text(
                     widget.data["VIDEO_NAME"],
-                    style : TextStyle( fontSize: 21),
+                    style : TextStyle( 
+                      color: Colors.white,
+                      fontSize: 21),
                   ),
                   Text(
                     widget.data["USER_ID"],
                     style : TextStyle( 
+                      color: Colors.white,
                       fontSize: 14,
                       fontStyle: FontStyle.italic,
                     ),
@@ -580,7 +501,46 @@ class _CommentReadState extends State<CommentReadPage> {
           ),
           //여기부터는 댓글 뷰
           //댓글 입력 기능 => 버튼 누르면 팝업이 떠서 댓글 작성 가능
-          Container(),
+          GestureDetector(
+            onTap: () {
+              showDialog(context: context, builder: (context) {
+                return userLogInAndSendChangeMessagePopup(context, 2);
+              }
+              );
+              print("수정");
+            },
+            child : Container( // 수정
+              child : Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  // 유튜브 댓글에 있는 얼굴 사진 표현용
+                  Container(
+                    width: 50,
+                    height: 50,
+                    margin: EdgeInsets.all(8.0),
+                    decoration: BoxDecoration(
+                      color: Colors.blue, // 배경색
+                      shape: BoxShape.circle,
+                    ),
+                    child : Center( child: Text("YOU",
+                      style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),)),
+                    ),
+                      Text("댓글 작성",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20),),    
+                    ]
+                  ),
+            )   
+          ),
+
+
+
           Expanded(
             child : ListView.builder(
               itemCount: _commentsData.length,
@@ -588,7 +548,7 @@ class _CommentReadState extends State<CommentReadPage> {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 추가된 Container
+                    // 유튜브 댓글에 있는 얼굴 사진 표현용
                     Container(
                       width: 50,
                       height: 50,
@@ -623,7 +583,9 @@ class _CommentReadState extends State<CommentReadPage> {
                                 Container(//이름
                                   child : Text(
                                     "${_commentsData[index]["user_id"]}",
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(                
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold),
                                   ),            
                                 ),
                                 SizedBox(width : 12),
@@ -638,7 +600,9 @@ class _CommentReadState extends State<CommentReadPage> {
                                   child : Container( // 수정
                                     child : 
                                       Text("수정",
-                                      style: TextStyle(fontSize: 9),)
+                                      style: TextStyle(
+                                        color: Colors.
+                                        white,fontSize: 9),)  
                                   ),
                                 ),
                                 SizedBox(width : 5), 
@@ -650,13 +614,17 @@ class _CommentReadState extends State<CommentReadPage> {
                                   child : Container( // 수정
                                     child : 
                                       Text("삭제",
-                                      style: TextStyle(fontSize: 9),)
+                                      style: TextStyle(                                        
+                                        color: Colors.white,
+                                        fontSize: 9),)
                                   ),
                                 ),
                               ]
                             )
                           ),
-                          Text(_commentsData[index]["contents"]),
+                          Text(_commentsData[index]["contents"],
+                            style: TextStyle(                                        
+                              color: Colors.white),)
                         ],
                       ),
                     )
@@ -729,6 +697,7 @@ class _VideoWatchListState extends State<VideoWatchListPage> {
   
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white10,
       body: ListView.builder(
         itemCount: videoData.length,  // 리스트의 개수만큼 아이템 생성
         itemBuilder: (context, index) {
@@ -801,6 +770,20 @@ class _VideoWatchListState extends State<VideoWatchListPage> {
             ),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VideoUploadPage(), // 이동할 페이지 클래스
+            ),
+          );
+        },
+        shape: CircleBorder(),
+        child: Icon(Icons.add
+        , size : 40),// + 모양 아이콘
+        backgroundColor: Colors.white30, // 버튼 배경색
       ),
     );
   }

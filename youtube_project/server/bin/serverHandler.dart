@@ -10,6 +10,12 @@ String createRandomId() {
   final random = Random();
   return List.generate(30, (index) => charactors[random.nextInt(charactors.length)]).join();
 }
+String createRandomCommentId() {
+const charactors = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  final random = Random();
+  return List.generate(20, (index) => charactors[random.nextInt(charactors.length)]).join();
+
+}
 
 Future<void> SendVideoListToClient(HttpRequest request, MySQLConnection conn)  async {
   List<Map<String, dynamic>> resultList = [];
@@ -263,7 +269,7 @@ void createContents(HttpRequest request, MySQLConnection conn) async {
   var user_id = transaction['user_id'];
   var user_password = transaction['user_password'];
   var videoId = transaction["video_id"];
-  var commentId = "${videoId}DEF";
+  var commentId = createRandomCommentId();
   var commentContents = transaction["contents"];
 
   print("$user_id, $user_password, $commentId");
@@ -463,3 +469,45 @@ void updateComment(HttpRequest request, MySQLConnection conn) async {
 
 }
 
+void deleteComment(HttpRequest request, MySQLConnection conn) async {
+  var content = await utf8.decoder.bind(request).join();
+  var transaction = jsonDecode(content) as Map;
+
+  print(transaction);
+
+  var commentId = transaction["comment_id"];
+  var userId = transaction["user_id"];
+  var userPassword = transaction["user_password"];
+  bool isRightUser = false;
+
+  var result = await conn.execute('select user_id, user_password from comments_table where comment_id = :commentId', { "commentId" : commentId});
+  for (final row in result.rows) {
+    print("${row.colAt(0)}, ${row.colAt(1)}");
+    if ((row.colAt(0) == userId) && (row.colAt(1) == userPassword)){
+      isRightUser = true;
+      break;
+    }
+  }
+
+  if (isRightUser) {
+    try {
+      await conn.execute("delete from comments_table where comment_id = :commentId", {"commentId" : commentId});
+
+      request.response.statusCode = HttpStatus.ok;
+      
+      result = await conn.execute("SELECT * from COMMENTS_TABLE WHERE comment_id = :commentId", {"commentId" : commentId});
+
+    } catch (err)
+    {
+      request.response
+        ..statusCode = HttpStatus.notAcceptable
+        ..write("Wrong User Access::$err");
+    }
+
+
+  }
+  else {
+    print("\$ Wrong User");
+  }
+  await request.response.close();
+}

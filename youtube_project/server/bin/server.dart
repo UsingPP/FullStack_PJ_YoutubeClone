@@ -92,6 +92,8 @@ print("\$ SQL Connect");
           
           } else if (request.uri.path == '/commentUpdate') {
             updateComment(request, conn);
+          } else if (request.uri.path == '/commentDelete')  {
+            deleteComment(request, conn);
           }
           //createContents(request, conn);
           break;
