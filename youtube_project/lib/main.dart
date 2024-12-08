@@ -29,33 +29,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// class MainPage extends StatelessWidget {
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       body: Center(
-//         child: Column(
-//           mainAxisAlignment: MainAxisAlignment.center,
-//           children: [
-//             ElevatedButton(
-//               child: const Text("Video Upload Page#Test"),
-//               onPressed: () {
-//                 Navigator.push(
-//                   context, 
-//                   MaterialPageRoute(builder: (context) => VideoUploadPage()),
-//                 );
-//               },
-//             ),
-//           ],
-
-//         )        
-//       ),
-//     );
-//   }
-// }
-
-
-
 
 //비디오 업로드
 class VideoUploadPage extends StatefulWidget {

@@ -29,22 +29,6 @@ final conn = await MySQLConnection.createConnection(
 await conn.connect();
 print("\$ SQL Connect");
 
-// var result = await conn.execute("select * from video_table");
-
-// print(result.numOfColumns);
-// print(result.numOfRows);
-// print(result.lastInsertID);
-// print(result.affectedRows);
-
-// List<Map<dynamic, dynamic>> myList = [];
-//   //print query result
-// for (final row in result.rows) {
-//   print(row.colAt(1));
-
-//   //print all rows as Map<String, String>
-//   myList.add(row.assoc());
-//   print(myList);
-//   }
 
 
 // actually connect to database
